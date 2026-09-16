@@ -1,0 +1,30 @@
+[submodule "Module-00"]
+	path = Module-00
+	url = https://github.com/NicolasBaudoin/CPP-Module-00.git
+[submodule "Module-01"]
+	path = Module-01
+	url = https://github.com/NicolasBaudoin/CPP-Module-01.git
+[submodule "Module-02"]
+	path = Module-02
+	url = https://github.com/NicolasBaudoin/CPP-Module-02.git
+[submodule "Module-03"]
+	path = Module-03
+	url = https://github.com/NicolasBaudoin/CPP-Module-03.git
+[submodule "Module-04"]
+	path = Module-04
+	url = https://github.com/NicolasBaudoin/CPP-Module-04.git
+[submodule "Module-05"]
+	path = Module-05
+	url = https://github.com/NicolasBaudoin/CPP-Module-05.git
+[submodule "Module-06"]
+	path = Module-06
+	url = https://github.com/NicolasBaudoin/CPP-Module-06.git
+[submodule "Module-07"]
+	path = Module-07
+	url = https://github.com/NicolasBaudoin/CPP-Module-07.git
+[submodule "Module-08"]
+	path = Module-08
+	url = https://github.com/NicolasBaudoin/CPP-Module-08.git
+[submodule "Module-09"]
+	path = Module-09
+	url = https://github.com/NicolasBaudoin/CPP-Module-09.git
