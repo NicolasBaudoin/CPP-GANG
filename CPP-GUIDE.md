@@ -1,4 +1,4 @@
-# Guide C++ — de zéro aux Modules 00→04
+# Guide C++ — de zéro aux Modules 00→09
 
 Ce guide n'est pas un cours exhaustif : c'est le strict nécessaire pour comprendre ce que chaque module te demande **avant** de l'attaquer, pour ne pas perdre de temps à découvrir un concept en plein milieu d'un exercice. Les exemples utilisent des classes génériques (`Vehicle`, `Shape`...) — jamais celles des sujets — à toi d'appliquer le principe sur `Zombie`, `Fixed`, `ClapTrap`, etc.
 
@@ -14,8 +14,13 @@ Ce guide n'est pas un cours exhaustif : c'est le strict nécessaire pour compren
 4. [Module 02 — Orthodox Canonical Form & opérateurs](#4-module-02--orthodox-canonical-form--opérateurs)
 5. [Module 03 — Héritage](#5-module-03--héritage)
 6. [Module 04 — Polymorphisme & classes abstraites](#6-module-04--polymorphisme--classes-abstraites)
-7. [Méthode pour aller vite](#7-méthode-pour-aller-vite)
-8. [Ressources](#8-ressources)
+7. [Module 05 — Exceptions](#7-module-05--exceptions)
+8. [Module 06 — Casts C++](#8-module-06--casts-c)
+9. [Module 07 — Templates](#9-module-07--templates)
+10. [Module 08 — Containers, itérateurs, algorithmes](#10-module-08--containers-itérateurs-algorithmes)
+11. [Module 09 — STL en pratique](#11-module-09--stl-en-pratique)
+12. [Méthode pour aller vite](#12-méthode-pour-aller-vite)
+13. [Ressources](#13-ressources)
 
 ---
 
@@ -312,7 +317,183 @@ Avec une copie superficielle, deux objets pointent sur le même bloc mémoire : 
 
 ---
 
-## 7. Méthode pour aller vite
+## 7. Module 05 — Exceptions
+
+### Créer sa propre exception
+
+Une exception doit hériter de `std::exception` et redéfinir `what()` :
+
+```cpp
+class TooHeavyException : public std::exception
+{
+    public:
+        virtual const char * what(void) const throw()
+        {
+            return "this box is too heavy to lift";
+        }
+};
+```
+
+`throw()` après `what()` déclare que la fonction ne lève jamais d'exception elle-même (obligatoire en C++98 pour respecter la signature de `std::exception::what`). Les classes d'exception n'ont **pas** besoin d'être en Orthodox Canonical Form.
+
+### Lever et attraper
+
+```cpp
+class Box
+{
+    public:
+        void lift(int weight) const
+        {
+            if (weight > 50)
+                throw TooHeavyException();
+            std::cout << "lifted!" << std::endl;
+        }
+};
+
+try
+{
+    Box b;
+    b.lift(80);
+}
+catch (std::exception const & e)   // catch par référence : marche pour N'IMPORTE quelle exception dérivée
+{
+    std::cerr << e.what() << std::endl;
+}
+```
+
+Attraper par **référence sur `std::exception`** (et non par valeur) permet d'intercepter n'importe quelle exception standard sans connaître son type exact — pratique quand plusieurs classes (`GradeTooHighException`, `GradeTooLowException`...) peuvent être levées au même endroit.
+
+### Éviter la cascade de `if/else` (pattern répété dans le module)
+
+Une classe abstraite qui centralise la vérification, déléguée à une méthode virtuelle pure dans chaque classe concrète, évite le `if (name == "a") ... else if (name == "b")` explicitement interdit dans l'exercice `Intern` :
+
+```cpp
+class AAction
+{
+    public:
+        virtual ~AAction(void) {}
+        virtual void run(void) const = 0;
+};
+class Jump : public AAction { public: void run(void) const { std::cout << "jump" << std::endl; } };
+class Duck : public AAction { public: void run(void) const { std::cout << "duck" << std::endl; } };
+```
+
+Une fonction "usine" peut alors comparer une seule fois le nom à une liste de paires `{nom, type}` (ou utiliser une `std::map<std::string, ...>` à partir du Module 08/09) plutôt que d'enchaîner les `if`.
+
+---
+
+## 8. Module 06 — Casts C++
+
+C++ remplace le cast C `(type)valeur` par quatre casts explicites, chacun avec un rôle précis :
+
+```cpp
+double d = 4.2;
+int i        = static_cast<int>(d);          // conversion "normale" entre types compatibles, vérifiée à la compilation
+Base* b      = dynamic_cast<Base*>(derived);  // conversion sûre dans une hiérarchie polymorphe, NULL si ça échoue
+uintptr_t addr = reinterpret_cast<uintptr_t>(&d); // réinterprète les bits bruts, aucune vérification, dangereux
+const int* cp = &i;
+int* p       = const_cast<int*>(cp);          // ajoute/retire const, rien d'autre
+```
+
+- **`static_cast`** : le cas courant (numérique, pointeur de base vers dérivé si tu es sûr du type). Utilisé dans l'exercice `ScalarConverter`.
+- **`dynamic_cast`** : le seul qui vérifie le type réel **à l'exécution** — nécessite une classe polymorphe (au moins une méthode `virtual`). Retourne `NULL` sur un pointeur si le cast est invalide (ou lève `std::bad_cast` sur une référence). C'est l'outil pour l'exercice `identify()` : tenter `dynamic_cast<A*>(p)`, puis `B*`, puis `C*`, et regarder lequel n'est pas `NULL` — sans jamais inclure `<typeinfo>`.
+- **`reinterpret_cast`** : réinterprète une adresse comme un entier ou un autre pointeur sans aucune conversion de valeur — exactement ce que demande `Serializer::serialize`/`deserialize`.
+- **`const_cast`** : seul cast capable de retirer un `const`, à n'utiliser qu'en dernier recours.
+
+---
+
+## 9. Module 07 — Templates
+
+### Fonction template
+
+```cpp
+template <typename T>
+T const & maxOf(T const & a, T const & b)
+{
+    return (a > b) ? a : b;
+}
+```
+
+Le compilateur génère une version différente de la fonction pour chaque type utilisé (`maxOf(3, 5)`, `maxOf(std::string("a"), std::string("b"))`, ...) — c'est de la généricité résolue **à la compilation**, sans coût à l'exécution. Une fonction template doit être entièrement définie dans le header (pas de séparation .hpp/.cpp), sinon l'éditeur de liens ne trouve pas l'instanciation dont il a besoin.
+
+### Classe template
+
+```cpp
+template <typename T>
+class Box
+{
+    private:
+        T _value;
+    public:
+        Box(T value) : _value(value) {}
+        T get(void) const { return _value; }
+};
+
+Box<int> a(42);
+Box<std::string> b("hello");
+```
+
+### `const` et non-`const` dans un template (le piège de `iter`)
+
+Une fonction template appliquée à un tableau `const` doit pouvoir recevoir une fonction qui prend son paramètre par `const&`, et inversement pour un tableau non-`const`. Deux surcharges (une pour `T*`, une pour `T const*`) — ou un seul paramètre de template pour la fonction elle-même — permettent de couvrir les deux cas sans dupliquer toute la logique.
+
+---
+
+## 10. Module 08 — Containers, itérateurs, algorithmes
+
+La STL est enfin autorisée : `<vector>`, `<list>`, `<map>`, `<stack>`, `<algorithm>`... Le but du module est de les utiliser **à la place** de tes propres boucles/tableaux dès que c'est pertinent.
+
+### Un itérateur, c'est un pointeur généralisé
+
+```cpp
+std::vector<int> v;
+v.push_back(1);
+v.push_back(2);
+
+for (std::vector<int>::iterator it = v.begin(); it != v.end(); ++it)
+    std::cout << *it << std::endl;   // *it déréférence, comme un pointeur
+```
+
+`<algorithm>` fournit des fonctions qui travaillent sur des paires d'itérateurs, indépendamment du container : `std::find(v.begin(), v.end(), 42)` marche aussi bien sur un `vector` que sur un `list`.
+
+### Étendre un container existant (le principe derrière `MutantStack`)
+
+`std::stack` ne s'itère pas nativement, mais elle stocke ses éléments dans un attribut **protégé** nommé `c` (le container sous-jacent, par défaut un `std::deque`). En héritant, ce membre devient accessible :
+
+```cpp
+template <typename T>
+class IterableStack : public std::stack<T>
+{
+    public:
+        typedef typename std::stack<T>::container_type::iterator iterator;
+        iterator begin(void) { return this->c.begin(); }
+        iterator end(void)   { return this->c.end(); }
+};
+```
+
+C'est le même principe pour rendre `std::stack` itérable dans l'exercice du module.
+
+---
+
+## 11. Module 09 — STL en pratique
+
+Ce module impose une contrainte inhabituelle : **chaque container utilisé ne peut servir que pour un seul exercice** du module. Choisis-le donc dès le départ en fonction du besoin réel :
+
+- **Recherche par date la plus proche (`BitcoinExchange`)** : un `std::map<std::string, double>` trié par clé. `map::lower_bound(date)` donne le premier élément **non inférieur** à la date cherchée ; si ce n'est pas une correspondance exacte, l'élément précédent (`--it`) donne la date la plus proche **inférieure**, exactement ce que demande le sujet.
+- **Évaluation d'une expression postfixée (`RPN`)** : un `std::stack<int>` — on empile les nombres, et à chaque opérateur on dépile deux valeurs, on calcule, on repousse le résultat.
+- **Tri fusion-insertion (`PmergeMe`)** : le sujet impose **deux containers différents** (ex. `std::vector` et `std::list`) pour comparer leurs performances sur le même algorithme (Ford-Johnson). Mesure le temps avec `std::clock()` de `<ctime>` (disponible en C++98, contrairement à `<chrono>`).
+
+```cpp
+#include <ctime>
+
+std::clock_t start = std::clock();
+// ... tri ...
+double elapsed_us = 1000000.0 * (std::clock() - start) / CLOCKS_PER_SEC;
+```
+
+---
+
+## 12. Méthode pour aller vite
 
 1. **Lis tout le sujet du module avant de coder** — les exemples de sortie révèlent souvent des exigences absentes du texte.
 2. **Écris le Makefile en premier**, même vide (`all`, `clean`, `fclean`, `re`) — tu ajoutes les fichiers au fur et à mesure sans y repenser.
@@ -324,7 +505,7 @@ Avec une copie superficielle, deux objets pointent sur le même bloc mémoire : 
 
 ---
 
-## 8. Ressources
+## 13. Ressources
 
 - [cppreference.com](https://en.cppreference.com/w/) — référence complète et fiable, filtrer sur C++98 quand une page propose plusieurs versions
 - [cplusplus.com/reference](https://cplusplus.com/reference/) — référence historique citée par les sujets 42 eux-mêmes (`string`, `iomanip`)
