@@ -4,6 +4,8 @@
 
 Parcours C++ à 42, organisé en un module par sous-repo (git submodule).
 
+📘 [**CPP-GUIDE.md**](CPP-GUIDE.md) — guide pour apprendre les concepts C++ nécessaires et enchaîner les Modules 00 à 04 rapidement.
+
 ## Modules
 
 | Module | Repo |
