@@ -1,7 +1,7 @@
 #ifndef ZOMBIE_CPP
 # define ZOMBIE_CPP
 
-#include "zombie.hpp"
+#include "Zombie.hpp"
 #include <iostream>
 
 void Zombie::announce(void)

@@ -1,6 +1,6 @@
 #include <string>
 #include <iostream>
-#include "zombie.hpp"
+#include "Zombie.hpp"
 
 int main(void)
 {

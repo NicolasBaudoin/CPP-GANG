@@ -1,10 +1,10 @@
-NAME    = zombie
-SRCS    = zombie.cpp
+NAME    = Zombie
+SRCS    = Zombie.cpp main.cpp
 
 CXX     = c++
 CXXFLAGS = -Wall -Wextra -Werror -std=c++98
 
-HEADERS = zombie.hpp
+HEADERS = Zombie.hpp
 
 OBJS    = $(SRCS:.cpp=.o)
 
