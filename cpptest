@@ -24,8 +24,11 @@ else G=; R=; Y=; B=; D=; N=; fi
 
 OKS=0; KOS=0; WARNS=0
 ok()   { OKS=$((OKS+1)); if [ $VERBOSE = 1 ]; then echo "   ${G}OK${N}   $1"; fi; return 0; }
-ko()   { KOS=$((KOS+1));   echo "   ${R}KO${N}   $1"; }
-warn() { WARNS=$((WARNS+1)); echo "   ${Y}WARN${N} $1"; }
+CUR=""; FIRST_KO=""; FIRST_HINT=""; FIRST_WARN=""
+ko()   { KOS=$((KOS+1)); echo "   ${R}KO${N}   $1"; [ -n "$2" ] && echo "        ${D}→ $2${N}"
+	if [ -z "$FIRST_KO" ]; then FIRST_KO="$CUR : $1"; FIRST_HINT="$2"; fi; return 0; }
+warn() { WARNS=$((WARNS+1)); echo "   ${Y}WARN${N} $1"; [ -n "$2" ] && echo "        ${D}→ $2${N}"
+	[ -z "$FIRST_WARN" ] && FIRST_WARN="$CUR : $1"; return 0; }
 
 # --- Que tester ? ---
 MOD=""; EX=""
@@ -64,8 +67,8 @@ check_files() {
 		else
 			local lower="" a
 			for a in "${alt[@]}"; do [[ "$a" == *"*"* ]] && continue; lower="$(ls 2>/dev/null | grep -ixF "$a" | head -1)"; [ -n "$lower" ] && break; done
-			if [ -n "$lower" ]; then ko "fichier $tok absent (tu as « $lower » : la casse compte)"
-			else ko "fichier $tok absent"; fi
+			if [ -n "$lower" ]; then ko "fichier $tok absent (tu as « $lower » : la casse compte)" "renomme-le en gardant l'historique avec git mv, puis pense aux #include qui le citent"
+			else ko "fichier $tok absent" "le sujet l'exige dans « Files to Submit » : même nom, même casse"; fi
 		fi
 	done
 }
@@ -74,38 +77,49 @@ check_makefile() {
 	[ -f Makefile ] || return 1
 	local r
 	for r in all clean fclean re; do
-		grep -qE "^$r[[:space:]]*:" Makefile && ok "règle $r" || ko "règle « $r » absente du Makefile"
+		grep -qE "^$r[[:space:]]*:" Makefile && ok "règle $r" || ko "règle « $r » absente du Makefile" "« make $r » doit exister : relis les règles Makefile de la Norme"
 	done
-	grep -qE '^\$\(NAME\)[[:space:]]*:' Makefile && ok "règle \$(NAME)" || ko "règle « \$(NAME): » absente du Makefile"
+	grep -qE '^\$\(NAME\)[[:space:]]*:' Makefile && ok "règle \$(NAME)" || ko "règle « \$(NAME): » absente du Makefile" "c'est la règle qui fabrique le binaire, et all doit en dépendre"
 	for r in -Wall -Wextra -Werror -std=c++98; do
-		grep -q -- "$r" Makefile && ok "flag $r" || ko "flag $r absent du Makefile"
+		grep -q -- "$r" Makefile && ok "flag $r" || ko "flag $r absent du Makefile" "ajoute-le dans CXXFLAGS"
 	done
 	grep -qE '^CXX[[:space:]]*:?=[[:space:]]*c\+\+' Makefile && ok "compilateur c++" \
-		|| warn "le sujet demande de compiler avec c++ (CXX = c++)"
+		|| warn "le sujet demande de compiler avec c++" "CXX = c++"
 }
 
 check_build() {
 	local name tmp out
 	name="$(sed -n 's/^NAME[[:space:]]*:\{0,1\}=[[:space:]]*//p' Makefile | head -1 | tr -d '[:space:]')"
-	[ -z "$name" ] && { ko "variable NAME introuvable dans le Makefile"; return; }
+	[ -z "$name" ] && { ko "variable NAME introuvable dans le Makefile" "déclare NAME = <nom du binaire> en haut du Makefile"; return; }
 	tmp="$(mktemp -d)"; cp -R . "$tmp/ex"
 	(
 		cd "$tmp/ex" || exit
 		make fclean > /dev/null 2>&1
 		if ! out="$(make 2>&1)"; then
-			echo "   ${R}KO${N}   compilation :"; echo "$out" | head -15 | sed 's/^/        /'; exit 3
+			echo "$out" > "$tmp/err"; exit 3
 		fi
-		[ -x "$name" ] || { echo "   ${R}KO${N}   make ne produit pas « $name »"; exit 3; }
+		[ -x "$name" ] || exit 7
 		out="$(make 2>&1)"
-		if echo "$out" | grep -qE '(c\+\+|g\+\+|clang)'; then echo "   ${R}KO${N}   relink : un 2e « make » recompile"; exit 4; fi
+		if echo "$out" | grep -qE '(c\+\+|g\+\+|clang)'; then exit 4; fi
 		make fclean > /dev/null 2>&1
-		if [ -e "$name" ] || compgen -G '*.o' > /dev/null; then echo "   ${R}KO${N}   fclean laisse des fichiers"; exit 5; fi
-		make re > /dev/null 2>&1 && [ -x "$name" ] || { echo "   ${R}KO${N}   make re échoue"; exit 6; }
+		if [ -e "$name" ] || compgen -G '*.o' > /dev/null; then exit 5; fi
+		make re > /dev/null 2>&1 && [ -x "$name" ] || exit 6
 		exit 0
 	)
-	local rc=$?
-	if [ $rc = 0 ]; then ok "compile, pas de relink, fclean et re OK"; BIN="$tmp/ex/$name"
-	else KOS=$((KOS+1)); BIN=""; fi
+	local rc=$? hint
+	BIN=""
+	case $rc in
+		0) ok "compile, pas de relink, fclean et re OK"; BIN="$tmp/ex/$name";;
+		3)	if grep -q "undefined reference to \`main'" "$tmp/err"; then hint="aucun fichier compilé ne contient main() : regarde ce que liste SRCS"
+			elif grep -q "undefined reference" "$tmp/err"; then hint="une fonction est déclarée mais jamais compilée : un .cpp manque dans SRCS, ou elle n'est pas définie"
+			elif grep -qiE "no such file|file not found" "$tmp/err"; then hint="un fichier est introuvable : vérifie le nom (et la casse) dans SRCS et dans tes #include"
+			else hint="lis la première erreur, pas la dernière"; fi
+			ko "compilation" "$hint"; head -12 "$tmp/err" | sed 's/^/        /';;
+		7) ko "make ne produit pas « $name »" "NAME doit être exactement le fichier créé par -o";;
+		4) ko "relink : un 2e « make » recompile" "si rien n'a changé, make ne doit rien refaire : regarde les dépendances de \$(NAME) et les règles qui touchent des fichiers";;
+		5) ko "fclean laisse des fichiers" "fclean doit supprimer le binaire, et les .o via clean";;
+		6) ko "make re échoue" "re = fclean puis all";;
+	esac
 	BUILD_TMP="$tmp"
 }
 
@@ -115,16 +129,16 @@ check_forbidden() {
 	for f in $(srcfiles); do
 		code="$(strip_comments "$f")"
 		echo "$code" | grep -qE '\b(printf|fprintf|sprintf|snprintf|dprintf|malloc|calloc|realloc|free)[[:space:]]*\(' \
-			&& ko "$f : *printf / *alloc / free interdits (note 0)"
-		echo "$code" | grep -qE '\busing[[:space:]]+namespace\b' && ko "$f : « using namespace » interdit (-42)"
-		echo "$code" | grep -qE '\bfriend\b' && ko "$f : « friend » interdit (-42)"
+			&& ko "$f : *printf / *alloc / free interdits (note 0)" "en C++ : std::cout pour afficher, new et delete pour la mémoire"
+		echo "$code" | grep -qE '\busing[[:space:]]+namespace\b' && ko "$f : « using namespace » interdit (-42)" "écris std:: devant ce que tu utilises"
+		echo "$code" | grep -qE '\bfriend\b' && ko "$f : « friend » interdit (-42)" "passe par l'interface publique de la classe (getters)"
 		if [ "$((10#$mod))" -lt 8 ] && [ "$f" != tests.cpp ]; then
 			echo "$code" | grep -qE '#[[:space:]]*include[[:space:]]*<(vector|list|map|set|deque|stack|queue|algorithm|unordered_map|unordered_set|bitset|forward_list|array)>' \
-				&& ko "$f : STL (conteneurs / <algorithm>) interdite avant le Module 08 (-42)"
+				&& ko "$f : STL (conteneurs / <algorithm>) interdite avant le Module 08 (-42)" "tableau classique ou ta propre structure"
 		fi
 		local p
 		for p in "${extra[@]}"; do
-			[ -n "$p" ] && echo "$code" | grep -qE "$p" && ko "$f : interdit par le sujet ($p)"
+			[ -n "$p" ] && echo "$code" | grep -qE "$p" && ko "$f : interdit par le sujet ($p)" "relis la ligne « Forbidden » de l'exercice : c'est justement ce qu'il veut te faire faire autrement"
 		done
 	done
 	ok "fonctions et mots-clés interdits"
@@ -134,13 +148,13 @@ check_headers() {
 	local mod="$1" h
 	for h in $(ls *.hpp *.h 2>/dev/null); do
 		if grep -qE '^[[:space:]]*#[[:space:]]*ifndef' "$h" && grep -qE '^[[:space:]]*#[[:space:]]*define' "$h"; then ok "$h : include guard"
-		elif grep -q '#pragma once' "$h"; then warn "$h : #pragma once n'est pas standard, le sujet parle d'include guards"
-		else ko "$h : pas d'include guard (note 0)"; fi
+		elif grep -q '#pragma once' "$h"; then warn "$h : #pragma once n'est pas standard" "le sujet demande des include guards (#ifndef / #define)"
+		else ko "$h : pas d'include guard (note 0)" "#ifndef / #define en haut, #endif en bas"; fi
 		if printf '#include "%s"\n' "$h" | c++ -std=c++98 -Wall -Wextra -Werror -fsyntax-only -x c++ - 2>/dev/null; then
 			ok "$h : compile seul"
-		else ko "$h : ne compile pas seul (il lui manque des #include)"; fi
+		else ko "$h : ne compile pas seul" "ajoute dans ce header les #include dont il a besoin lui-même"; fi
 		if ! grep -q 'template' "$h" && strip_comments "$h" | grep -qE '\)[[:space:]]*(const)?[[:space:]]*\{'; then
-			warn "$h : semble contenir un corps de fonction (0 si ce n'est pas un template)"
+			warn "$h : semble contenir un corps de fonction" "si ce n'est pas un template, déplace l'implémentation dans le .cpp (sinon 0)"
 		fi
 		if [ "$((10#$mod))" -ge 2 ]; then
 			local cls
@@ -151,7 +165,7 @@ check_headers() {
 				echo "$code" | grep -qE "\b$cls[[:space:]]*\([[:space:]]*(const[[:space:]]+$cls|$cls[[:space:]]+const)[[:space:]]*&" || miss="$miss constructeur-de-copie"
 				echo "$code" | grep -qE "operator[[:space:]]*=[[:space:]]*\(" || miss="$miss operator="
 				echo "$code" | grep -qE "~$cls[[:space:]]*\(" || miss="$miss destructeur"
-				[ -n "$miss" ] && warn "$h : $cls pas en forme canonique ? manque :$miss"
+				[ -n "$miss" ] && warn "$h : $cls pas en forme canonique ? manque :$miss" "à partir du 02 : constructeur par défaut, de copie, operator= et destructeur"
 			done
 		fi
 	done
@@ -168,12 +182,12 @@ check_cases() {
 		exp="$(cat "$c")"
 		if [ "$got" = "$exp" ]; then ok "sortie $(basename "${c%.out}")"
 		else
-			ko "sortie $(basename "${c%.out}") : args [${args[*]}]"
+			ko "sortie $(basename "${c%.out}") : args [${args[*]}]" "compare caractère par caractère, espaces et retours à la ligne compris"
 			echo "        attendu : $exp" | head -3; echo "        obtenu  : $got" | head -3
 		fi
 		if command -v valgrind > /dev/null; then
 			(cd "$(dirname "$BIN")" && timeout 20 valgrind -q --leak-check=full --error-exitcode=42 "$BIN" "${args[@]}" > /dev/null 2>&1)
-			[ $? = 42 ] && ko "fuites ou erreurs mémoire (valgrind) avec [${args[*]}]"
+			[ $? = 42 ] && ko "fuites ou erreurs mémoire (valgrind) avec [${args[*]}]" "chaque new a-t-il son delete ?"
 		fi
 	done
 }
@@ -182,7 +196,8 @@ test_ex() {
 	local mod="$1" ex="$2"; shift 2
 	local files=("$@")
 	local dir="$ROOT/Module-$mod/$ex"
-	if [ ! -d "$dir" ]; then echo " ${D}Module-$mod/$ex : pas commencé${N}"; return; fi
+	CUR="Module-$mod/$ex"
+	if [ ! -d "$dir" ]; then echo " ${D}$CUR : pas commencé${N}"; STATUS["$mod $ex"]=absent; return; fi
 	echo "${B}Module-$mod/$ex${N}"
 	local k0=$KOS
 	BIN=""; BUILD_TMP=""
@@ -196,16 +211,19 @@ test_ex() {
 	check_cases "$mod" "$ex"
 	popd > /dev/null || return
 	[ -n "$BUILD_TMP" ] && rm -rf "$BUILD_TMP"
-	[ $KOS = "$k0" ] && echo "   ${G}✓ conforme${N}"
+	if [ $KOS = "$k0" ]; then echo "   ${G}✓ conforme${N}"; STATUS["$mod $ex"]=ok; else STATUS["$mod $ex"]=ko; fi
 }
 
 # --- Boucle principale ---
 FOUND=0
+declare -A STATUS
+ORDER=()
 while read -r mod ex rest; do
 	case "$mod" in ''|'#'*|forbid) continue;; esac
 	[ -n "$MOD" ] && [ "$mod" != "$MOD" ] && continue
 	[ -n "$EX" ] && [ "$ex" != "$EX" ] && continue
 	FOUND=1
+	ORDER+=("$mod $ex")
 	read -ra files <<< "$rest"
 	test_ex "$mod" "$ex" "${files[@]}"
 done < "$SPEC"
@@ -214,4 +232,36 @@ done < "$SPEC"
 command -v valgrind > /dev/null || echo "${D}(valgrind absent : pas de test de fuites. Fais-le au cluster.)${N}"
 echo
 echo "${B}Bilan :${N} ${R}$KOS KO${N}, ${Y}$WARNS WARN${N}$([ $VERBOSE = 1 ] && echo ", ${G}$OKS OK${N}")"
+
+# --- Prochaine étape ---
+next_in_module() { # exercice suivant dans le spec, même module
+	grep -E "^$1 ex[0-9]{2} " "$SPEC" | awk -v e="$2" 'f{print $2; exit} $2==e{f=1}'
+}
+echo
+if [ -n "$FIRST_KO" ]; then
+	echo "${B}Prochaine étape :${N} corriger $FIRST_KO"
+	[ -n "$FIRST_HINT" ] && echo "   ${D}→ $FIRST_HINT${N}"
+	[ $KOS -gt 1 ] && echo "   ${D}puis relance cpptest pour la suite ($KOS KO en tout)${N}"
+else
+	todo=""
+	for k in "${ORDER[@]}"; do [ "${STATUS[$k]}" = absent ] && { todo="$k"; break; }; done
+	if [ -n "$EX" ]; then
+		nx="$(next_in_module "$MOD" "$EX")"
+		if [ -z "$nx" ]; then
+			echo "${B}Prochaine étape :${N} dernier exercice du module. Vérifie tout le module avec « cpptest $MOD », puis rends-le avec ./vog.sh Module-$MOD <url>"
+		elif [ -d "$ROOT/Module-$MOD/$nx" ]; then
+			echo "${B}Prochaine étape :${N} Module-$MOD/$nx existe déjà : « cd ../$nx && cpptest »"
+		else
+			echo "${B}Prochaine étape :${N} attaquer Module-$MOD/$nx : « mkdir ../$nx », et relis son sujet en entier avant de coder"
+		fi
+	elif [ -n "$todo" ]; then
+		set -- $todo
+		echo "${B}Prochaine étape :${N} attaquer Module-$1/$2 (relis son sujet en entier avant de coder)"
+	elif [ -n "$MOD" ]; then
+		echo "${B}Prochaine étape :${N} Module-$MOD complet et conforme. Teste les fuites au cluster (valgrind), puis : ./vog.sh Module-$MOD <url>"
+	else
+		echo "${B}Prochaine étape :${N} tout est conforme. Bravo."
+	fi
+	[ -n "$FIRST_WARN" ] && echo "   ${D}avant de rendre, jette un œil aux WARN (ex : $FIRST_WARN)${N}"
+fi
 [ $KOS = 0 ]

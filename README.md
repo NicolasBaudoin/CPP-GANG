@@ -25,7 +25,7 @@ Le script copie la version **commitée** du module dans le repo Vogsphere (sans 
 
 ## Tester un exercice
 
-`cpptest` vérifie les **règles des sujets** (pas la logique de tes exos) : fichiers attendus et leur casse, Makefile (règles, flags, relink, `fclean`, `re`), compilation, `*printf`/`*alloc`/`free`, `using namespace`, `friend`, STL avant le Module 08, include guards, headers qui compilent seuls, forme canonique à partir du Module 02 (en WARN), et les sorties données par le sujet quand elles sont dans `tester/cases/`.
+`cpptest` vérifie les **règles des sujets** (pas la logique de tes exos) : fichiers attendus et leur casse, Makefile (règles, flags, relink, `fclean`, `re`), compilation, `*printf`/`*alloc`/`free`, `using namespace`, `friend`, STL avant le Module 08, include guards, headers qui compilent seuls, forme canonique à partir du Module 02 (en WARN), et les sorties données par le sujet quand elles sont dans `tester/cases/`. Chaque KO est suivi d'une piste (→), et le bilan se termine par la **prochaine étape** : le premier KO à corriger, sinon l'exercice suivant à attaquer, sinon le rendu du module.
 
 Pour le lancer de n'importe où dans le repo, ajoute dans ton `~/.bashrc` :
 
