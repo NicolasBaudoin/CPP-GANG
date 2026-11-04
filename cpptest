@@ -63,7 +63,11 @@ check_files() {
 			elif [ -f "$f" ]; then found="$f"; fi
 			[ -n "$found" ] && break
 		done
-		if [ -n "$found" ]; then ok "fichier $tok"
+		if [ -n "$found" ]; then
+			ok "fichier $tok"
+			if [[ "$found" != *"*"* && "$found" != Makefile ]] && ! grep -q '[^[:space:]]' "$found"; then
+				ko "$found est vide" "le sujet l'exige : qu'est-ce qui doit y être, d'après la consigne ?"
+			fi
 		else
 			local lower="" a
 			for a in "${alt[@]}"; do [[ "$a" == *"*"* ]] && continue; lower="$(ls 2>/dev/null | grep -ixF "$a" | head -1)"; [ -n "$lower" ] && break; done
@@ -85,6 +89,16 @@ check_makefile() {
 	done
 	grep -qE '^CXX[[:space:]]*:?=[[:space:]]*c\+\+' Makefile && ok "compilateur c++" \
 		|| warn "le sujet demande de compiler avec c++" "CXX = c++"
+	# Chaque .cpp du dossier doit être compilé (sauf si le Makefile utilise un wildcard)
+	if ! grep -q 'wildcard' Makefile; then
+		local f
+		for f in *.cpp; do
+			[ -e "$f" ] || continue
+			grep -qE "(^|[[:space:]=/])${f//./\\.}([[:space:]\\]|$)" Makefile \
+				|| ko "$f n'est pas dans le Makefile" "un fichier du sujet doit être compilé : ajoute-le à SRCS"
+		done
+	fi
+	return 0
 }
 
 check_build() {
