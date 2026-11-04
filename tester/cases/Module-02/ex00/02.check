@@ -1,0 +1,6 @@
+# Le sujet affiche des messages de construction / copie / destruction
+out="$(cat)"
+for m in "Default constructor" "Copy constructor" "Destructor"; do
+	echo "$out" | grep -qi "$m" || { echo "message « $m called » attendu (voir l'exemple du sujet)"; exit 1; }
+done
+[ "$(echo "$out" | grep -ci destructor)" -ge 3 ] || { echo "3 objets créés, 3 destructeurs attendus"; exit 1; }

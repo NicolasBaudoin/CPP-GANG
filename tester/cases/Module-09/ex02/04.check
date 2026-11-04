@@ -1,0 +1,1 @@
+out="$(cat)"; echo "$out" | grep -qi error || { echo "« Error » attendu pour un nombre négatif"; exit 1; }; echo "$out" | grep -qi after && { echo "pas de tri attendu en cas d'erreur"; exit 1; }; exit 0

@@ -1,0 +1,1 @@
+grep -qi error || { echo "sans argument : message d'erreur attendu (« Error: could not open file. »)"; exit 1; }

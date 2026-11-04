@@ -171,23 +171,72 @@ check_headers() {
 	done
 }
 
+# Tests d'exécution (tester/cases/Module-XX/exYY/) :
+#   NN.args   arguments, un par ligne (absent ou vide = aucun)
+#   NN.gen    script qui affiche les arguments (ex : 3000 nombres aléatoires)
+#   NN.out    sortie attendue (stdout + stderr)
+#   NN.keep   regex : ne compare que les lignes qui correspondent
+#   NN.ignore regex : ignore les lignes qui correspondent
+#   NN.check  script de vérif (reçoit la sortie sur stdin, les args en paramètres) à la place de NN.out
+#   NN.dir/   fichiers copiés à côté du binaire avant l'exécution
+#   NN.needs  fichier qui doit être présent dans ton exercice (sinon le cas est ignoré)
+#   subject_main.cpp : main fourni par le sujet, compilé avec TES autres .cpp à la place de ton main
+filter_lines() { # $1 = fichier keep, $2 = fichier ignore
+	local in; in="$(cat)"
+	[ -f "$1" ] && in="$(printf '%s\n' "$in" | grep -E "$(cat "$1")")"
+	[ -f "$2" ] && in="$(printf '%s\n' "$in" | grep -vE "$(cat "$2")")"
+	printf '%s\n' "$in" | sed -e 's/[[:space:]]*$//' -e '/^$/d'
+}
+
 check_cases() {
-	local dir="$CASES/Module-$1/$2" c args exp got
+	local dir="$CASES/Module-$1/$2" c base args exp got bin="$BIN" rundir label
 	[ -d "$dir" ] || return
-	[ -z "$BIN" ] && { warn "tests de sortie ignorés (pas de binaire)"; return; }
-	for c in "$dir"/*.out; do
+	if [ -f "$dir/subject_main.cpp" ]; then
+		[ -z "$BIN" ] && { warn "tests d'exécution ignorés (ton exercice ne compile pas)"; return; }
+		local sm="$BUILD_TMP/subject"; mkdir -p "$sm"; cp ./*.cpp ./*.hpp ./*.h ./*.tpp "$sm"/ 2>/dev/null
+		rm -f "$sm/main.cpp"; cp "$dir/subject_main.cpp" "$sm/"
+		local h; for h in "$sm"/*.h; do [ -e "$h" ] || continue; h="$(basename "${h%.h}")"
+			sed -i.bak "s|\"$h.hpp\"|\"$h.h\"|" "$sm/subject_main.cpp"; done
+		if ! c++ -Wall -Wextra -Werror -std=c++98 "$sm"/*.cpp -o "$sm/subject_bin" 2> "$sm/err"; then
+			ko "ne compile pas avec le main du sujet" "vérifie les noms et signatures exactes demandées par le sujet"
+			head -8 "$sm/err" | sed 's/^/        /'; return
+		fi
+		bin="$sm/subject_bin"; label=" (main du sujet)"
+	fi
+	[ -z "$bin" ] && { warn "tests d'exécution ignorés (pas de binaire)"; return; }
+	for c in "$dir"/*.out "$dir"/*.check; do
 		[ -e "$c" ] || continue
-		args=(); [ -f "${c%.out}.args" ] && mapfile -t args < "${c%.out}.args"
-		got="$(cd "$(dirname "$BIN")" && timeout 5 "$BIN" "${args[@]}" 2>/dev/null)"
-		exp="$(cat "$c")"
-		if [ "$got" = "$exp" ]; then ok "sortie $(basename "${c%.out}")"
+		base="${c%.*}"
+		[[ "$c" == *.out && -e "$base.check" ]] && continue
+		if [ -f "$base.needs" ] && [ ! -e "$(cat "$base.needs")" ]; then
+			warn "test $(basename "$base") ignoré : il faut $(cat "$base.needs") dans ton exercice" "le sujet le fournit en téléchargement"; continue
+		fi
+		args=()
+		[ -f "$base.args" ] && mapfile -t args < "$base.args"
+		[ -f "$base.gen" ] && mapfile -t args < <(bash "$base.gen")
+		rundir="$(dirname "$bin")"
+		[ -d "$base.dir" ] && cp -R "$base.dir"/. "$rundir"/
+		cp ./*.csv ./*.txt "$rundir"/ 2>/dev/null
+		got="$(cd "$rundir" && timeout 10 "$bin" "${args[@]}" 2>&1)"
+		local shown="${args[*]}"; [ ${#shown} -gt 40 ] && shown="${#args[@]} arguments"
+		if [[ "$c" == *.check ]]; then
+			local why
+			if why="$(printf '%s\n' "$got" | bash "$c" "${args[@]}" 2>&1)"; then ok "exécution $(basename "$base")$label"
+			else ko "exécution $(basename "$base")$label${shown:+ : args [$shown]}" "$why"
+				printf '%s\n' "$got" | head -4 | cut -c1-100 | sed 's/^/        obtenu : /'; fi
 		else
-			ko "sortie $(basename "${c%.out}") : args [${args[*]}]" "compare caractère par caractère, espaces et retours à la ligne compris"
-			echo "        attendu : $exp" | head -3; echo "        obtenu  : $got" | head -3
+			exp="$(filter_lines "$base.keep" "$base.ignore" < "$c")"
+			got="$(printf '%s\n' "$got" | filter_lines "$base.keep" "$base.ignore")"
+			if [ "$got" = "$exp" ]; then ok "exécution $(basename "$base")$label"
+			else
+				ko "exécution $(basename "$base")$label${shown:+ : args [$shown]}" "compare ligne par ligne avec l'exemple du sujet"
+				diff <(printf '%s\n' "$exp") <(printf '%s\n' "$got") | grep '^[<>]' | head -6 \
+					| sed -e 's/^</        attendu :/' -e 's/^>/        obtenu  :/'
+			fi
 		fi
 		if command -v valgrind > /dev/null; then
-			(cd "$(dirname "$BIN")" && timeout 20 valgrind -q --leak-check=full --error-exitcode=42 "$BIN" "${args[@]}" > /dev/null 2>&1)
-			[ $? = 42 ] && ko "fuites ou erreurs mémoire (valgrind) avec [${args[*]}]" "chaque new a-t-il son delete ?"
+			(cd "$rundir" && timeout 60 valgrind -q --leak-check=full --error-exitcode=42 "$bin" "${args[@]}" > /dev/null 2>&1)
+			[ $? = 42 ] && ko "fuites ou erreurs mémoire (valgrind) avec [$shown]" "chaque new a-t-il son delete ?"
 		fi
 	done
 }
