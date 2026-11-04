@@ -1,0 +1,54 @@
+# Fichiers obligatoires par exercice, recopiés des sujets ("Files to Submit").
+#   A|B     = l'un ou l'autre (ex : Zombie.h|Zombie.hpp)
+#   *.cpp   = au moins un fichier qui correspond
+# Lignes "forbid" : motif interdit en plus des règles générales (regex grep -E).
+
+00 ex00 Makefile megaphone.cpp
+00 ex01 Makefile *.cpp *.h|*.hpp
+00 ex02 Makefile Account.cpp Account.hpp tests.cpp
+
+01 ex00 Makefile main.cpp Zombie.h|Zombie.hpp Zombie.cpp newZombie.cpp randomChump.cpp
+01 ex01 Makefile main.cpp Zombie.h|Zombie.hpp Zombie.cpp zombieHorde.cpp
+01 ex02 Makefile main.cpp
+01 ex03 Makefile main.cpp Weapon.h|Weapon.hpp Weapon.cpp HumanA.h|HumanA.hpp HumanA.cpp HumanB.h|HumanB.hpp HumanB.cpp
+01 ex04 Makefile main.cpp *.cpp *.h|*.hpp
+01 ex05 Makefile main.cpp Harl.h|Harl.hpp Harl.cpp
+01 ex06 Makefile main.cpp Harl.h|Harl.hpp Harl.cpp
+forbid 01 ex04 \.replace[[:space:]]*\(
+
+02 ex00 Makefile main.cpp Fixed.h|Fixed.hpp Fixed.cpp
+02 ex01 Makefile main.cpp Fixed.h|Fixed.hpp Fixed.cpp
+02 ex02 Makefile main.cpp Fixed.h|Fixed.hpp Fixed.cpp
+02 ex03 Makefile main.cpp Fixed.h|Fixed.hpp Fixed.cpp Point.h|Point.hpp Point.cpp bsp.cpp
+
+03 ex00 Makefile main.cpp ClapTrap.h|ClapTrap.hpp ClapTrap.cpp
+03 ex01 Makefile main.cpp ClapTrap.h|ClapTrap.hpp ClapTrap.cpp ScavTrap.h|ScavTrap.hpp ScavTrap.cpp
+03 ex02 Makefile main.cpp ClapTrap.h|ClapTrap.hpp ClapTrap.cpp ScavTrap.h|ScavTrap.hpp ScavTrap.cpp FragTrap.h|FragTrap.hpp FragTrap.cpp
+03 ex03 Makefile main.cpp ClapTrap.h|ClapTrap.hpp ClapTrap.cpp ScavTrap.h|ScavTrap.hpp ScavTrap.cpp FragTrap.h|FragTrap.hpp FragTrap.cpp DiamondTrap.h|DiamondTrap.hpp DiamondTrap.cpp
+
+04 ex00 Makefile main.cpp *.cpp *.h|*.hpp
+04 ex01 Makefile main.cpp *.cpp *.h|*.hpp
+04 ex02 Makefile main.cpp *.cpp *.h|*.hpp
+04 ex03 Makefile main.cpp *.cpp *.h|*.hpp
+
+05 ex00 Makefile main.cpp Bureaucrat.h|Bureaucrat.hpp Bureaucrat.cpp
+05 ex01 Makefile main.cpp Bureaucrat.h|Bureaucrat.hpp Bureaucrat.cpp Form.h|Form.hpp Form.cpp
+05 ex02 Makefile main.cpp Bureaucrat.h|Bureaucrat.hpp Bureaucrat.cpp AForm.h|AForm.hpp AForm.cpp ShrubberyCreationForm.h|ShrubberyCreationForm.hpp ShrubberyCreationForm.cpp RobotomyRequestForm.h|RobotomyRequestForm.hpp RobotomyRequestForm.cpp PresidentialPardonForm.h|PresidentialPardonForm.hpp PresidentialPardonForm.cpp
+05 ex03 Makefile main.cpp Bureaucrat.h|Bureaucrat.hpp Bureaucrat.cpp AForm.h|AForm.hpp AForm.cpp ShrubberyCreationForm.h|ShrubberyCreationForm.hpp ShrubberyCreationForm.cpp RobotomyRequestForm.h|RobotomyRequestForm.hpp RobotomyRequestForm.cpp PresidentialPardonForm.h|PresidentialPardonForm.hpp PresidentialPardonForm.cpp Intern.h|Intern.hpp Intern.cpp
+
+06 ex00 Makefile *.cpp *.h|*.hpp
+06 ex01 Makefile *.cpp *.h|*.hpp
+06 ex02 Makefile *.cpp *.h|*.hpp
+forbid 06 ex02 typeinfo
+
+07 ex00 Makefile main.cpp whatever.h|whatever.hpp
+07 ex01 Makefile main.cpp iter.h|iter.hpp
+07 ex02 Makefile main.cpp Array.h|Array.hpp
+
+08 ex00 Makefile main.cpp easyfind.h|easyfind.hpp
+08 ex01 Makefile main.cpp Span.h|Span.hpp Span.cpp
+08 ex02 Makefile main.cpp MutantStack.h|MutantStack.hpp
+
+09 ex00 Makefile main.cpp BitcoinExchange.cpp BitcoinExchange.hpp
+09 ex01 Makefile main.cpp RPN.cpp RPN.hpp
+09 ex02 Makefile main.cpp PmergeMe.cpp PmergeMe.hpp
