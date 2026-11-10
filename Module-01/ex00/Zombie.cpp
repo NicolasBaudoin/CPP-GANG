@@ -4,10 +4,19 @@
 #include "Zombie.hpp"
 #include <iostream>
 
+Zombie::Zombie(std::string name): _name(couleur)
+{
+}
+
+Zombie::~Zombie(void)
+{
+    std::cout << _name << " s'en va" << std::endl;
+}
+
+
 void Zombie::announce(void)
 {
-    string name = "Pas mal";
-	std::cout << name + ":"  << "BraiiiiiiinnnzzzZ..." << std::endl;
+	std::cout << _name + ":"  << "BraiiiiiiinnnzzzZ..." << std::endl;
 }
 
 
