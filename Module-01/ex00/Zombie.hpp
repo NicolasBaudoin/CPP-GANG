@@ -14,6 +14,6 @@ class Zombie
         void grogner(void);
 };
 
-Zombie* adoptZombie(std::string name);  
+Zombie* newZombie(std::string name);  
 
 #endif
