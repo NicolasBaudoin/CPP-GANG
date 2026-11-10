@@ -6,6 +6,7 @@
 
 void Zombie::announce(void)
 {
+    string name = "Pas mal";
 	std::cout << name + ":"  << "BraiiiiiiinnnzzzZ..." << std::endl;
 }
 
