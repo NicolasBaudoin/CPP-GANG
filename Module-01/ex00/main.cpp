@@ -4,7 +4,8 @@
 
 int main(void)
 {
-	Zombie one;
+	Zombie one("grrerr");
+    one.grogner();
 
 
 	one.announce();
